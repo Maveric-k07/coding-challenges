@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"unicode"
 	"unicode/utf8"
@@ -22,8 +23,8 @@ func main() {
 	if len(args) > 0 {
 		filePath = args[0]
 	} else {
-		fmt.Println("File path is required")
-		os.Exit(1)
+		countFromStdin(*cFlag, *lFlag, *wFlag, *mFlag)
+		return
 	}
 
 	if !(*cFlag || *lFlag || *wFlag || *mFlag) {
@@ -177,4 +178,86 @@ func countCharacters(filePath string) (int, error) {
 	}
 
 	return charCount, nil
+}
+
+func countFromStdin(cFlag, lFlag, wFlag, mFlag bool) {
+	stat, _ := os.Stdin.Stat()
+
+	if (stat.Mode() & os.ModeCharDevice) == 0 {
+		filePath := "stdin"
+		byteCount, err := countBytesFromReader(os.Stdin)
+		if err != nil {
+			fmt.Println("Error counting bytes:", err)
+			os.Exit(1)
+		}
+		lines, err := countLinesFromReader(os.Stdin)
+		if err != nil {
+			fmt.Println("Error counting lines:", err)
+			os.Exit(1)
+		}
+		words, err := countWordsFromReader(os.Stdin)
+		if err != nil {
+			fmt.Println("Error counting words:", err)
+			os.Exit(1)
+		}
+		charCount, err := countCharactersFromReader(os.Stdin)
+		if err != nil {
+			fmt.Println("Error counting characters:", err)
+			os.Exit(1)
+		}
+		if !(cFlag || lFlag || wFlag || mFlag) {
+			fmt.Printf("%10d %10d %10d %s\n", lines, words, byteCount, filePath)
+		}
+
+		if cFlag {
+			fmt.Printf("%10d %s\n", byteCount, filePath)
+		}
+		if lFlag {
+			fmt.Printf("%10d %s\n", lines, filePath)
+		}
+		if wFlag {
+			fmt.Printf("%10d %s\n", words, filePath)
+		}
+		if mFlag {
+			fmt.Printf("%10d %s\n", charCount, filePath)
+		}
+	} else {
+		fmt.Println("No input provided.")
+	}
+}
+
+// Functions to count from readers (files, stdin)
+func countBytesFromReader(r io.Reader) (int, error) {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return 0, err
+	}
+	return len(data), nil
+}
+
+func countLinesFromReader(r io.Reader) (int, error) {
+	scanner := bufio.NewScanner(r)
+	lineCount := 0
+	for scanner.Scan() {
+		lineCount++
+	}
+	return lineCount, scanner.Err()
+}
+
+func countWordsFromReader(r io.Reader) (int, error) {
+	scanner := bufio.NewScanner(r)
+	wordCount := 0
+	for scanner.Scan() {
+		words := splitWords(scanner.Text())
+		wordCount += len(words)
+	}
+	return wordCount, scanner.Err()
+}
+
+func countCharactersFromReader(r io.Reader) (int, error) {
+	data, err := io.ReadAll(r)
+	if err != nil {
+		return 0, err
+	}
+	return len([]rune(string(data))), nil
 }
